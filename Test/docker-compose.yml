@@ -1,0 +1,44 @@
+version: '3.10'
+
+services:
+  model-training:
+    build: 
+      dockerfile: Dockerfile
+    image: kai/model-training
+    command: python filename.py
+    networks:
+      - kai-network
+
+  redis-store:
+    container_name: redis-store
+    image: redis:6-alpine
+    networks:
+      - kai-network
+  worker-tr:
+    build:
+      dockerfile: Dockerfile
+    container_name: worker-tr
+    environment:
+      - CELERY_BROKER_URL=redis://redis-store:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis-store:6379/0
+    command: celery -A celery_task worker --loglevel=info
+
+    networks:
+      - kai-network
+
+  flower-tr:
+    image: mher/flower:1.2
+    container_name: flower-tr
+    command: celery flower --url_prefix=flower
+    environment:
+      - CELERY_BROKER_URL=redis://redis-store:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis-store:6379/0
+    ports:
+      - "5555:5555"
+    networks:
+      - kai-network
+
+networks:
+  kai-network:
+    driver: bridge
+  
